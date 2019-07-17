@@ -1,6 +1,7 @@
 package chromedp
 
 import (
+	"context"
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
@@ -25,4 +26,29 @@ func CookieParamsFromCookies(cookies []*network.Cookie) []*network.CookieParam {
 		})
 	}
 	return ret
+}
+
+func SetCookies(cookies []*network.Cookie) Action {
+	return ActionFunc(func(ctx context.Context) error {
+		params := CookieParamsFromCookies(cookies)
+		if err := network.SetCookies(params).Do(ctx); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func GetCookies(cookies *[]*network.Cookie) Action {
+	if cookies == nil {
+		panic("cookies cannot be nil")
+	}
+
+	return ActionFunc(func(ctx context.Context) error {
+		ac, err := network.GetAllCookies().Do(ctx)
+		if err != nil {
+			return err
+		}
+		*cookies = ac
+		return nil
+	})
 }
