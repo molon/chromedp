@@ -14,8 +14,8 @@ type navOptions struct {
 
 type NavigateOption = func(*navOptions)
 
-func WaitLoadEventFired(opts *navOptions) {
-	opts.waitEventType = reflect.TypeOf(&page.EventLoadEventFired{})
+func WaitEventFrameNavigated(opts *navOptions) {
+	opts.waitEventType = reflect.TypeOf(&page.EventFrameNavigated{})
 }
 
 // NavigateAction are actions that manipulate the navigation of the browser.
@@ -35,7 +35,7 @@ func Navigate(urlstr string, opts ...NavigateOption) NavigateAction {
 // waitLoaded blocks until a target receives a Page.loadEventFired.
 func waitNavEvent(ctx context.Context, opts ...NavigateOption) error {
 	options := &navOptions{
-		waitEventType: reflect.TypeOf(&page.EventFrameNavigated{}),
+		waitEventType: reflect.TypeOf(&page.EventLoadEventFired{}),
 	}
 	for _, o := range opts {
 		o(options)

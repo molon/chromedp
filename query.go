@@ -186,6 +186,11 @@ func (s *Selector) Do(ctx context.Context) error {
 
 		ids, err := s.by(ctx, root)
 		if err != nil || len(ids) < s.exp {
+			if s.checking {
+				*(s.checkResult) = false
+				return nil
+			}
+
 			continue
 		}
 		nodes, err := s.wait(ctx, cur, ids...)
