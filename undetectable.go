@@ -32,7 +32,7 @@ type UndetectableOption = func(*undetectableOptions)
 
 func BypassIframeTest(bypassIframeTest bool) UndetectableOption {
 	return func(opts *undetectableOptions) {
-		opts.bypassIframeTest = !bypassIframeTest
+		opts.bypassIframeTest = bypassIframeTest
 	}
 }
 
