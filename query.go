@@ -196,7 +196,7 @@ func (s *Selector) Do(ctx context.Context) error {
 		nodes, err := s.wait(ctx, cur, ids...)
 		// if nodes==nil, we're not yet ready
 		if nodes == nil || err != nil {
-			if s.checking {
+			if s.checking && err != nil {
 				*(s.checkResult) = false
 				return nil
 			}
