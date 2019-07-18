@@ -161,10 +161,12 @@ func (s *Selector) Do(ctx context.Context) error {
 		return ErrInvalidTarget
 	}
 	for {
+		tm := time.NewTimer(5 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			tm.Stop()
 			return ctx.Err()
-		case <-time.After(5 * time.Millisecond):
+		case <-tm.C:
 		}
 		t.curMu.RLock()
 		cur := t.cur
