@@ -5,11 +5,9 @@ import (
 	"sync"
 )
 
-type WaitAction = Action
-
 // 这玩意有个弊端就是，如果检查的Action可能同时触发的话，返回的waitIdx在每次调用后不一定一样
 // 所有请不要使用可能同时触发的Action
-func WaitOneOf(waitIdx *int, actions ...Action) WaitAction {
+func WaitOneOf(waitIdx *int, actions ...Action) Action {
 	if len(actions) == 0 {
 		panic("actions cannot be empty")
 	}

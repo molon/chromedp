@@ -3,7 +3,7 @@ package chromedp
 import (
 	"context"
 	"errors"
-	"log"
+	"time"
 
 	"github.com/chromedp/cdproto/page"
 )
@@ -90,7 +90,6 @@ func waitNavEvent(ctx context.Context, opts ...NavigateOption) error {
 	ch := make(chan struct{})
 	lctx, cancel := context.WithCancel(ctx)
 	ListenTarget(lctx, func(ev interface{}) {
-		log.Printf("%#v", ev)
 		if err := options.wait(ctx, ev); err == nil {
 			cancel()
 			close(ch)
@@ -219,4 +218,28 @@ func Title(title *string) Action {
 		panic("title cannot be nil")
 	}
 	return EvaluateAsDevTools(`document.title`, title)
+}
+
+func WaitLocation(urlstr *string) Action {
+	if urlstr == nil {
+		panic("urlstr cannot be nil")
+	}
+
+	*urlstr = ""
+	return ActionFunc(func(ctx context.Context) error {
+		for {
+			tm := time.NewTimer(10 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				tm.Stop()
+				return ctx.Err()
+			case <-tm.C:
+			}
+
+			Location(urlstr).Do(ctx)
+			if *urlstr != "" {
+				return nil
+			}
+		}
+	})
 }
