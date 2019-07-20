@@ -11,9 +11,6 @@ func WaitOneOf(waitIdx *int, actions ...Action) Action {
 	if len(actions) == 0 {
 		panic("actions cannot be empty")
 	}
-	if waitIdx == nil {
-		panic("waitIdx cannot be nil")
-	}
 
 	return ActionFunc(func(ctx context.Context) error {
 		wg := &sync.WaitGroup{}
@@ -55,7 +52,9 @@ func WaitOneOf(waitIdx *int, actions ...Action) Action {
 				return r.err
 			}
 
-			*waitIdx = r.idx
+			if waitIdx != nil {
+				*waitIdx = r.idx
+			}
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
