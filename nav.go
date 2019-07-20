@@ -3,19 +3,49 @@ package chromedp
 import (
 	"context"
 	"errors"
-	"reflect"
+	"log"
 
 	"github.com/chromedp/cdproto/page"
 )
 
 type navOptions struct {
-	waitEventType reflect.Type
+	wait func(ctx context.Context, ev interface{}) error
 }
 
 type NavigateOption = func(*navOptions)
 
-func WaitEventFrameNavigated(opts *navOptions) {
-	opts.waitEventType = reflect.TypeOf(&page.EventFrameNavigated{})
+func NavigateWaitFunc(wait func(ctx context.Context, ev interface{}) error) NavigateOption {
+	return func(opts *navOptions) {
+		opts.wait = wait
+	}
+}
+
+func NavigateNoWait(opts *navOptions) {
+	opts.wait = nil
+}
+
+func NavigateWaitEventLoadEventFired(opts *navOptions) {
+	opts.wait = func(ctx context.Context, ev interface{}) error {
+		if _, ok := ev.(*page.EventLoadEventFired); ok {
+			return nil
+		}
+		return ErrNotMatch
+	}
+}
+
+func NavigateWaitEventFrameNavigated(opts *navOptions) {
+	opts.wait = func(ctx context.Context, ev interface{}) error {
+		if _, ok := ev.(*page.EventFrameNavigated); ok {
+			return nil
+		}
+		return ErrNotMatch
+	}
+}
+
+func WaitNavigate(opts ...NavigateOption) NavigateAction {
+	return ActionFunc(func(ctx context.Context) error {
+		return waitNavEvent(ctx, opts...)
+	})
 }
 
 // NavigateAction are actions that manipulate the navigation of the browser.
@@ -34,11 +64,17 @@ func Navigate(urlstr string, opts ...NavigateOption) NavigateAction {
 
 // waitLoaded blocks until a target receives a Page.loadEventFired.
 func waitNavEvent(ctx context.Context, opts ...NavigateOption) error {
-	options := &navOptions{
-		waitEventType: reflect.TypeOf(&page.EventLoadEventFired{}),
-	}
+	options := &navOptions{}
+	// set default wait func
+	NavigateWaitEventLoadEventFired(options)
+	// override
 	for _, o := range opts {
 		o(options)
+	}
+
+	// If no wait, just return
+	if options.wait == nil {
+		return nil
 	}
 
 	// TODO: this function is inherently racy, as we don't run ListenTarget
@@ -54,7 +90,8 @@ func waitNavEvent(ctx context.Context, opts ...NavigateOption) error {
 	ch := make(chan struct{})
 	lctx, cancel := context.WithCancel(ctx)
 	ListenTarget(lctx, func(ev interface{}) {
-		if reflect.TypeOf(ev) == options.waitEventType {
+		log.Printf("%#v", ev)
+		if err := options.wait(ctx, ev); err == nil {
 			cancel()
 			close(ch)
 		}
