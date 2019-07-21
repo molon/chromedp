@@ -243,3 +243,26 @@ func WaitLocation(urlstr *string) Action {
 		}
 	})
 }
+
+func WaitNotLocation(not string, ret *string) Action {
+	urlstr := ""
+	return ActionFunc(func(ctx context.Context) error {
+		for {
+			tm := time.NewTimer(10 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				tm.Stop()
+				return ctx.Err()
+			case <-tm.C:
+			}
+
+			Location(&urlstr).Do(ctx)
+			if urlstr != not {
+				if ret != nil {
+					*ret = urlstr
+				}
+				return nil
+			}
+		}
+	})
+}
