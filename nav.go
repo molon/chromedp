@@ -220,33 +220,9 @@ func Title(title *string) Action {
 	return EvaluateAsDevTools(`document.title`, title)
 }
 
-func WaitLocation(urlstr *string) Action {
-	if urlstr == nil {
-		panic("urlstr cannot be nil")
-	}
-
-	*urlstr = ""
-	return ActionFunc(func(ctx context.Context) error {
-		for {
-			tm := time.NewTimer(10 * time.Millisecond)
-			select {
-			case <-ctx.Done():
-				tm.Stop()
-				return ctx.Err()
-			case <-tm.C:
-			}
-
-			Location(urlstr).Do(ctx)
-			if *urlstr != "" {
-				return nil
-			}
-		}
-	})
-}
-
 func WaitNotLocation(not string, ret *string) Action {
-	urlstr := ""
 	return ActionFunc(func(ctx context.Context) error {
+		urlstr := ""
 		for {
 			tm := time.NewTimer(10 * time.Millisecond)
 			select {
@@ -264,5 +240,14 @@ func WaitNotLocation(not string, ret *string) Action {
 				return nil
 			}
 		}
+	})
+}
+
+func WaitLocationChanged(ret *string) Action {
+	return ActionFunc(func(ctx context.Context) error {
+		init := ""
+		Location(&init).Do(ctx)
+
+		return WaitNotLocation(init, ret).Do(ctx)
 	})
 }
