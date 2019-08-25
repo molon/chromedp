@@ -3,7 +3,9 @@ package chromedp
 import (
 	"context"
 	"encoding/json"
+	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/runtime"
 )
 
@@ -109,4 +111,50 @@ func EvalIgnoreExceptions(p *runtime.EvaluateParams) *runtime.EvaluateParams {
 // expression to encode the result of the expression as a JSON-encoded value.
 func EvalAsValue(p *runtime.EvaluateParams) *runtime.EvaluateParams {
 	return p.WithReturnByValue(true)
+}
+
+// Wait until true
+func EvaluateUntilTrue(expression string, opts ...EvaluateOption) Action {
+	return ActionFunc(func(ctx context.Context) error {
+		t := cdp.ExecutorFromContext(ctx).(*Target)
+		if t == nil {
+			return ErrInvalidTarget
+		}
+
+		for {
+			tm := time.NewTimer(5 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				tm.Stop()
+				return ctx.Err()
+			case <-tm.C:
+			}
+			t.curMu.RLock()
+			cur := t.cur
+			t.curMu.RUnlock()
+
+			if cur == nil {
+				// the frame hasn't loaded yet."
+				continue
+			}
+
+			cur.RLock()
+			root := cur.Root
+			cur.RUnlock()
+
+			if root == nil {
+				// not root node yet?
+				continue
+			}
+
+			res := false
+			if err := Evaluate(expression, &res, opts...).Do(ctx); err != nil {
+				return err
+			}
+
+			if res {
+				return nil
+			}
+		}
+	})
 }
