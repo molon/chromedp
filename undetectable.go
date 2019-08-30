@@ -52,6 +52,11 @@ func Undetectable(opts ...UndetectableOption) Action {
 		// Object.defineProperty(navigator, 'webdriver', {
 		//   get: () => undefined,
 		// });
+
+		// This value was be null when using chrome-driver
+		Object.defineProperty(navigator, 'doNotTrack', {
+			get: () => '1',
+		});
 	
 		// Pass the Plugins Length Test.
 		// Overwrite the plugins property to use a custom getter.
