@@ -133,10 +133,14 @@ func (t *Target) Execute(ctx context.Context, method string, params easyjson.Mar
 		}},
 		SessionID: t.SessionID,
 	}
-	t.browser.cmdQueue <- &cdproto.Message{
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case t.browser.cmdQueue <- &cdproto.Message{
 		ID:     atomic.AddInt64(&t.browser.next, 1),
 		Method: target.CommandSendMessageToTarget,
 		Params: rawMarshal(sendParams),
+	}:
 	}
 	select {
 	case <-ctx.Done():
