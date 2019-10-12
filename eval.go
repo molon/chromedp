@@ -3,6 +3,7 @@ package chromedp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
@@ -63,6 +64,13 @@ func Evaluate(expression string, res interface{}, opts ...EvaluateOption) Evalua
 		case *[]byte:
 			*x = []byte(v.Value)
 			return nil
+		}
+
+		if v.Type == "undefined" {
+			// The unmarshal above would fail with the cryptic
+			// "unexpected end of JSON input" error, so try to give
+			// a better one here.
+			return fmt.Errorf("encountered an undefined value")
 		}
 
 		// unmarshal
