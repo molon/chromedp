@@ -281,12 +281,15 @@ func (b *Browser) run(ctx context.Context) {
 				continue
 			}
 			page.messageQueue <- m
-			if m.Method == cdproto.EventTargetDetachedFromTarget {
-				if _, ok := pages[m.SessionID]; !ok {
-					b.errf("executor for %q doesn't exist", m.SessionID)
-				}
-				delete(pages, m.SessionID)
-			}
+			// TODO: 暂时没找到原因，先去除删除逻辑
+			// https://github.com/chromedp/chromedp/issues/490
+			// if m.Method == cdproto.EventTargetDetachedFromTarget {
+			// 	if _, ok := pages[m.SessionID]; !ok {
+			// 		b.errf("executor for %q doesn't exist", m.SessionID)
+			// 	}
+			// 	b.dbgf("Session %v Detached!", m.SessionID)
+			// 	delete(pages, m.SessionID)
+			// }
 
 		case <-b.LostConnection:
 			return // to avoid "write: broken pipe" errors
