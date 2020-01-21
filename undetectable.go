@@ -60,14 +60,33 @@ func Undetectable(opts ...UndetectableOption) Action {
 	
 		// Pass the Plugins Length Test.
 		// Overwrite the plugins property to use a custom getter.
+		udNewPlugin = function(plugin,mime) {
+			  plugin.__proto__ = Plugin.prototype
+			  mime.__proto__ = MimeType.prototype
+			  plugin.length = 1
+			  mime.enabledPlugin = plugin
+			  plugin["0"] = mime
+			  return plugin;
+		}
 		Object.defineProperty(navigator, 'plugins', {
-			// This just needs to have length > 0 for the current test,
-			// but we could mock the plugins too if necessary.
-			get: () => [1, 2, 3, 4, 5],
+			get: () => {
+				p1 = udNewPlugin({
+					name: "Chrome PDF Plugin",
+					filename: "internal-pdf-viewer",
+					description: "Portable Document Format",
+				},{
+					type: "application/x-google-chrome-pdf",
+					suffixes: "pdf",
+					description: "Portable Document Format",
+				})
+				ps = [p1] 
+				ps.__proto__ = PluginArray.prototype
+				return ps;
+			},
 		});
 	
 		// Pass the Languages Test.
-		// Overwrite the plugins property to use a custom getter.
+		// Overwrite the languages property to use a custom getter.
 		Object.defineProperty(navigator, 'languages', {
 			get: () => ['en-US', 'en'],
 		});
