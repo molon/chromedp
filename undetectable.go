@@ -60,31 +60,81 @@ func Undetectable(opts ...UndetectableOption) Action {
 	
 		// Pass the Plugins Length Test.
 		// Overwrite the plugins property to use a custom getter.
-		udNewPlugin = function(plugin,mime) {
-			  plugin.__proto__ = Plugin.prototype
-			  mime.__proto__ = MimeType.prototype
-			  plugin.length = 1
-			  mime.enabledPlugin = plugin
-			  plugin["0"] = mime
-			  return plugin;
+		udNewPlugin = function(prot, mimes) {
+			prot.__proto__ = Plugin.prototype
+			p = (function () {
+				var res = {};
+				for (let i = 0; i < mimes.length; i++) {
+					Object.defineProperty(res, i+"", {
+						configurable: true,
+						enumerable: true,
+						get: function () {
+							mimes[i].__proto__ = MimeType.prototype
+							return mimes[i];
+						}
+					});
+				}
+				Object.setPrototypeOf(res, prot);
+				return res;
+			})();
+			// doesn't need
+			// for (let i = 0; i < mimes.length; i++) {
+			// 	mimes[i].enabledPlugin = p
+			// }
+			return p
 		}
-		Object.defineProperty(navigator, 'plugins', {
+		udMimes = [
+			{
+				type: "application/pdf",
+				suffixes: "pdf",
+				description: "",
+			},
+			{
+				type: "application/x-google-chrome-pdf",
+				suffixes: "pdf",
+				description: "Portable Document Format",
+			},
+			{
+				type: "application/x-nacl",
+				suffixes: "",
+				description: "Native Client Executable",
+			},
+			{
+				type: "application/x-pnacl",
+				suffixes: "",
+				description: "Portable Native Client Executable",
+			}
+		]
+		udMimes.__proto__ = MimeTypeArray.prototype
+		udPlugins = [
+			udNewPlugin({
+				name: "Chrome PDF Plugin",
+				filename: "internal-pdf-viewer",
+				description: "Portable Document Format",
+			},[udMimes[1]]),
+			udNewPlugin({
+				name: "Chrome PDF Viewer",
+				filename: "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+				description: "",
+			},[udMimes[0]]),
+			udNewPlugin({
+				name: "Native Client",
+				filename: "internal-nacl-plugin",
+				description: "",
+			},[udMimes[2],udMimes[3]]),
+		]
+		udPlugins.__proto__ = PluginArray.prototype
+		Object.defineProperty(navigator, 'mimeTypes', {
 			get: () => {
-				p1 = udNewPlugin({
-					name: "Chrome PDF Plugin",
-					filename: "internal-pdf-viewer",
-					description: "Portable Document Format",
-				},{
-					type: "application/x-google-chrome-pdf",
-					suffixes: "pdf",
-					description: "Portable Document Format",
-				})
-				ps = [p1] 
-				ps.__proto__ = PluginArray.prototype
-				return ps;
+				return udMimes;
 			},
 		});
-	
+		Object.defineProperty(navigator, 'plugins', {
+			get: () => {
+				return udPlugins;
+			},
+		});
+
 		// Pass the Languages Test.
 		// Overwrite the languages property to use a custom getter.
 		Object.defineProperty(navigator, 'languages', {
