@@ -74,6 +74,11 @@ func Undetectable(opts ...UndetectableOption) Action {
 						}
 					});
 				}
+				Object.defineProperty(res, "length", {
+					get: function () {
+						return mimes.length
+					}
+				});
 				Object.setPrototypeOf(res, prot);
 				return res;
 			})();
