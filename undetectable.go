@@ -164,8 +164,7 @@ func Undetectable(opts ...UndetectableOption) Action {
 	//
 	// Bypass the WebGL test.
 	//
-	
-	const getParameter = WebGLRenderingContext.getParameter;
+	const originalGetParameter = WebGLRenderingContext.getParameter;
 	WebGLRenderingContext.prototype.getParameter = function (parameter) {
 		// UNMASKED_VENDOR_WEBGL
 		if (parameter === 37445) {
@@ -176,7 +175,7 @@ func Undetectable(opts ...UndetectableOption) Action {
 			return 'Mesa DRI Intel(R) Ivybridge Mobile ';
 		}
 	
-		return getParameter(parameter);
+		return originalGetParameter(parameter);
 	};
 	
 	
