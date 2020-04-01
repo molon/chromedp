@@ -12,9 +12,11 @@ package chromedp
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/css"
 	"github.com/chromedp/cdproto/dom"
@@ -89,6 +91,9 @@ type Context struct {
 // Cancelling the returned context will close a tab or an entire browser,
 // depending on the logic described above. To cancel a context while checking
 // for errors, see Cancel.
+//
+// Note that NewContext doesn't allocate nor start a browser; that happens the
+// first time Run is used on the context.
 func NewContext(parent context.Context, opts ...ContextOption) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(parent)
 
@@ -178,16 +183,25 @@ func FromContext(ctx context.Context) *Context {
 // Cancel cancels a chromedp context, waits for its resources to be cleaned up,
 // and returns any error encountered during that process.
 //
-// Usually a "defer cancel()" will be enough for most use cases. This API is
-// useful if you want to catch underlying cancel errors, such as when a
-// temporary directory cannot be deleted.
+// If the context allocated a browser, the browser will be closed gracefully by
+// Cancel.
+//
+// Usually a "defer cancel()" will be enough for most use cases. However, Cancel
+// is the better option if one wants to gracefully close a browser, or catch
+// underlying errors happening during cancellation.
 func Cancel(ctx context.Context) error {
 	c := FromContext(ctx)
 	if c == nil {
 		return ErrInvalidContext
 	}
-	c.cancel()
-	c.closedTarget.Wait()
+	if c.first && c.Browser != nil {
+		if err := c.Browser.execute(ctx, browser.CommandClose, nil, nil); err != nil {
+			return err
+		}
+	} else {
+		c.cancel()
+		c.closedTarget.Wait()
+	}
 	// If we allocated, wait for the browser to stop.
 	if c.allocated != nil {
 		<-c.allocated
@@ -197,6 +211,10 @@ func Cancel(ctx context.Context) error {
 
 // Run runs an action against context. The provided context must be a valid
 // chromedp context, typically created via NewContext.
+//
+// Note that the first time Run is called on a context, a browser will be
+// allocated via Allocator. Thus, it's generally a bad idea to use a context
+// timeout on the first Run call, as it will stop the entire browser.
 func Run(ctx context.Context, actions ...Action) error {
 	c := FromContext(ctx)
 	// If c is nil, it's not a chromedp context.
@@ -230,12 +248,17 @@ func (c *Context) newTarget(ctx context.Context) error {
 		// This new page might have already loaded its top-level frame
 		// already, in which case we wouldn't see the frameNavigated and
 		// documentUpdated events. Load them here.
-		tree, err := page.GetFrameTree().Do(cdp.WithExecutor(ctx, c.Target))
-		if err != nil {
-			return err
+		// Since at the time of writing this (2020-1-27), Page.* CDP methods are
+		// not implemented in worker targets, we need to skip this step when we
+		// attach to workers.
+		if !c.Target.isWorker {
+			tree, err := page.GetFrameTree().Do(cdp.WithExecutor(ctx, c.Target))
+			if err != nil {
+				return err
+			}
+			c.Target.cur = tree.Frame
+			c.Target.documentUpdated(ctx)
 		}
-		c.Target.cur = tree.Frame
-		c.Target.documentUpdated(ctx)
 		return nil
 	}
 	if !c.first {
@@ -261,7 +284,10 @@ func (c *Context) newTarget(ctx context.Context) error {
 			return
 		}
 		if info.Type == "page" && info.URL == "about:blank" {
-			ch <- info.TargetID
+			select {
+			case <-lctx.Done():
+			case ch <- info.TargetID:
+			}
 			cancel()
 		}
 	})
@@ -293,19 +319,35 @@ func (c *Context) attachTarget(ctx context.Context, targetID target.ID) error {
 	c.Target.listeners = append(c.Target.listeners, c.targetListeners...)
 	go c.Target.run(ctx)
 
-	for _, action := range []Action{
-		// enable domains
-		log.Enable(),
-		runtime.Enable(),
-		inspector.Enable(),
-		page.Enable(),
-		dom.Enable(),
-		css.Enable(),
+	// Check if this is a worker target. We cannot use Target.getTargetInfo or
+	// Target.getTargets in a worker, so we check if "self" refers to a
+	// WorkerGlobalScope or ServiceWorkerGlobalScope.
+	if err := runtime.Enable().Do(cdp.WithExecutor(ctx, c.Target)); err != nil {
+		return err
+	}
+	res, _, err := runtime.Evaluate("self").Do(cdp.WithExecutor(ctx, c.Target))
+	if err != nil {
+		return err
+	}
+	c.Target.isWorker = strings.Contains(res.ClassName, "WorkerGlobalScope")
 
-		// enable target discovery
-		target.SetDiscoverTargets(true),
-		target.SetAutoAttach(true, false).WithFlatten(true),
-	} {
+	// Enable available domains and discover targets.
+	actions := []Action{
+		log.Enable(),
+	}
+	// These actions are not available on a worker target.
+	if !c.Target.isWorker {
+		actions = append(actions, []Action{
+			inspector.Enable(),
+			page.Enable(),
+			dom.Enable(),
+			css.Enable(),
+			target.SetDiscoverTargets(true),
+			target.SetAutoAttach(true, false).WithFlatten(true),
+		}...)
+	}
+
+	for _, action := range actions {
 		if err := action.Do(cdp.WithExecutor(ctx, c.Target)); err != nil {
 			return fmt.Errorf("unable to execute %T: %v", action, err)
 		}
@@ -480,7 +522,10 @@ func WaitNewTarget(ctx context.Context, fn func(*target.Info) bool) <-chan targe
 			return // already attached; not a new target
 		}
 		if fn(info) {
-			ch <- info.TargetID
+			select {
+			case <-lctx.Done():
+			case ch <- info.TargetID:
+			}
 			close(ch)
 			cancel()
 		}

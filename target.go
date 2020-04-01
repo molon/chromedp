@@ -35,6 +35,9 @@ type Target struct {
 
 	// logging funcs
 	logf, errf func(string, ...interface{})
+
+	// Indicates if the target is a worker target.
+	isWorker bool
 }
 
 func (t *Target) run(ctx context.Context) {
@@ -243,6 +246,8 @@ func (t *Target) pageEvent(ev interface{}) {
 	case *page.EventJavascriptDialogClosed:
 		return
 	case *page.EventWindowOpen:
+		return
+	case *page.EventDownloadWillBegin:
 		return
 
 	default:

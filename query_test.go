@@ -1072,7 +1072,9 @@ func TestScreenshotHighDPI(t *testing.T) {
 	// Use a weird screen dimension with a 1.5 scale factor, so that
 	// cropping the screenshot is forced to use floating point arithmetic
 	// and keep the high DPI in mind.
-	if err := Run(ctx, EmulateViewport(605, 405, EmulateScale(1.5))); err != nil {
+	// We also want the dimensions to be large enough to see the element we
+	// want, since we're not scrolling to ensure it's in view.
+	if err := Run(ctx, EmulateViewport(905, 705, EmulateScale(1.5))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1166,7 +1168,7 @@ func TestComputedStyle(t *testing.T) {
 			ctx, cancel := testAllocate(t, "js.html")
 			defer cancel()
 
-			var styles []*css.ComputedProperty
+			var styles []*css.ComputedStyleProperty
 			if err := Run(ctx, ComputedStyle(test.sel, &styles, test.by)); err != nil {
 				t.Fatalf("got error: %v", err)
 			}
