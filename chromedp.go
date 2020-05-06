@@ -384,7 +384,7 @@ func WithDebugf(f func(string, ...interface{})) ContextOption {
 // when NewContext is allocating a new browser.
 func WithBrowserOption(opts ...BrowserOption) ContextOption {
 	return func(c *Context) {
-		if !c.first {
+		if c.Browser != nil {
 			panic("WithBrowserOption can only be used when allocating a new browser")
 		}
 		c.browserOpts = append(c.browserOpts, opts...)
@@ -455,8 +455,9 @@ type cancelableListener struct {
 }
 
 // ListenBrowser adds a function which will be called whenever a browser event
-// is received on the chromedp context. Cancelling ctx stops the listener from
-// receiving any more events.
+// is received on the chromedp context. Note that this only includes browser
+// events; command responses and target events are not included. Cancelling ctx
+// stops the listener from receiving any more events.
 //
 // Note that the function is called synchronously when handling events. The
 // function should avoid blocking at all costs. For example, any Actions must be
@@ -477,9 +478,8 @@ func ListenBrowser(ctx context.Context, fn func(ev interface{})) {
 }
 
 // ListenTarget adds a function which will be called whenever a target event is
-// received on the chromedp context. Note that this only includes browser
-// events; command responses and target events are not included. Cancelling ctx
-// stops the listener from receiving any more events.
+// received on the chromedp context. Cancelling ctx stops the listener from
+// receiving any more events.
 //
 // Note that the function is called synchronously when handling events. The
 // function should avoid blocking at all costs. For example, any Actions must be
