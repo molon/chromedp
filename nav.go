@@ -224,7 +224,7 @@ func WaitNotLocation(not string, ret *string) Action {
 	return ActionFunc(func(ctx context.Context) error {
 		urlstr := ""
 		for {
-			tm := time.NewTimer(10 * time.Millisecond)
+			tm := time.NewTimer(50 * time.Millisecond)
 			select {
 			case <-ctx.Done():
 				tm.Stop()

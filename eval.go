@@ -130,7 +130,7 @@ func EvaluateUntilTrue(expression string, opts ...EvaluateOption) Action {
 		}
 
 		for {
-			tm := time.NewTimer(5 * time.Millisecond)
+			tm := time.NewTimer(50 * time.Millisecond)
 			select {
 			case <-ctx.Done():
 				tm.Stop()
