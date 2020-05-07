@@ -1200,6 +1200,26 @@ func ScrollIntoView(sel interface{}, opts ...QueryOption) QueryAction {
 	}, opts...)
 }
 
+func EvaluateClick(sel interface{}, opts ...QueryOption) QueryAction {
+	return QueryAfter(sel, func(ctx context.Context, nodes ...*cdp.Node) error {
+		if len(nodes) < 1 {
+			return fmt.Errorf("selector %q did not return any nodes", sel)
+		}
+
+		var res bool
+		err := EvaluateAsDevTools(snippet(clickJS, cashX(true), sel, nodes[0]), &res).Do(ctx)
+		if err != nil {
+			return err
+		}
+
+		if !res {
+			return fmt.Errorf("could not call submit on node %d", nodes[0].NodeID)
+		}
+
+		return nil
+	}, opts...)
+}
+
 func check(sel interface{}, ret *bool, opts ...QueryOption) QueryAction {
 	s := &Selector{
 		sel:         sel,
